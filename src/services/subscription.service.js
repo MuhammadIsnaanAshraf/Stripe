@@ -4,6 +4,7 @@ const Customer = require('../models/customer.model');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Price = require('../models/price.model');
 const { toDateTime } = require('../utils/globalFunctions');
+    const Product = require('../models/stripeProduct.model');
 /**
  * Get all subscriptions with optional filtering and pagination
  */
@@ -358,6 +359,79 @@ await user.save();
   return user;
 }
 
+const handleProductEvent = async (event) => {
+  try {
+    console.log("🚀 ~ handleProductEvent ~ event:", event?.data?.object)
+    const product = event?.data?.object;
+     const productData = {
+      stripeProductId: product.id,
+      name: product.name,
+      description: product.description || null,
+      active: product.active,
+      images: product.images || [],
+      metadata: product.metadata || {},
+      type: product.type || 'service',
+    }
+    let dbProduct = await Product.findOne({ stripeProductId: product.id });
+    if (dbProduct) {
+      dbProduct = await Product.updateOne({ stripeProductId: product.id }, productData);
+    } else {
+      dbProduct = await Product.create(productData);
+    }
+    return dbProduct;
+  }catch (error) {
+    throw new Error('Failed to handle product event: ' + error.message);
+  }
+}
+
+const handlePriceEvent = async (event) => {
+  try {
+    const price = event?.data?.object;
+    console.log("🚀 ~ handlePriceEvent ~ price:", price)
+    const priceData = {
+      stripePriceId: price.id,
+      stripeProductId: price.product,
+      active: price.active,
+      description: price.description || null,
+      unit_amount: price.unit_amount,
+      currency: price.currency,
+      type: price.type,
+      interval: price.recurring?.interval || null,
+      interval_count: price.recurring?.interval_count || null
+    }
+    let dbPrice = await Price.findOne({ stripePriceId: price.id });
+    if (dbPrice) {
+      dbPrice = await Price.updateOne({ stripePriceId: price.id }, priceData);
+    } else {
+      dbPrice = await Price.create(priceData);
+    }
+    return dbPrice;
+  } catch (error) {
+    throw new Error('Failed to handle price event: ' + error.message);
+  }
+}
+const deletePriceRecord = async (event) => {
+  console.log("🚀 ~ deletePriceRecord ~ event:", event)
+  try {
+    const price = event?.data?.object;
+    const deletedPrice = await Price.deleteOne({ stripePriceId: price.id });
+    return deletedPrice;
+  } catch (error) {
+    throw new Error('Failed to delete price record: ' + error.message);
+  }
+}
+
+const deleteProductRecord = async (event) => {
+  console.log("🚀 ~ deleteProductRecord ~ event:", event)
+  try {
+    const product = event?.data?.object;
+    const deletedProduct = await Product.deleteOne({ stripeProductId: product.id });
+    return deletedProduct;
+  } catch (error) {
+    throw new Error('Failed to delete product record: ' + error.message);
+  }
+}
+
 // const buildSubscriptionData
 module.exports = {
   getAllSubscriptions,
@@ -375,4 +449,8 @@ module.exports = {
   upsertSubscriptionRecord,
   upsertUserSubscriptionRecord,
   buildSubscriptionData,
+  handleProductEvent,
+  handlePriceEvent,
+  deletePriceRecord,
+  deleteProductRecord,
 };

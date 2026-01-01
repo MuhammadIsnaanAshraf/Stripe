@@ -14,6 +14,7 @@ const relevantWebhookEvents = [
   'invoice.paid'
 ];
 const TRIAL_PERIOD_DAYS = parseInt(process.env.TRIAL_PERIOD_DAYS) || 7;
+console.log("🚀 ~ TRIAL_PERIOD_DAYS:", TRIAL_PERIOD_DAYS)
 const subscriptionWebhook = async (req, res) => {
   console.log("Reached subscription webhook");
   const sig = req.headers['stripe-signature'];
@@ -55,6 +56,16 @@ const webHookHandler = async (event) => {
           event.type === 'customer.subscription.created',
           subscription.priceId,
         );
+      case 'product.created':
+      case 'product.updated':
+          return await subscriptionService.handleProductEvent(event);
+      case 'price.created':
+      case 'price.updated':
+          return await subscriptionService.handlePriceEvent(event);
+      case "price.deleted":
+              return await subscriptionService.deletePriceRecord(event);
+      case "product.deleted":
+                return await subscriptionService.deleteProductRecord(event);
       case 'checkout.session.completed':
         return await subscriptionService.handleCheckoutSessionCompleted(event);
       case 'invoice.paid':
@@ -67,9 +78,7 @@ const webHookHandler = async (event) => {
         console.log(`Unhandled event type: ${event.type}`);
         return null;
     }
-
   }
-
 }
 
 const getAllSubscriptions = async (req, res) => {
@@ -238,6 +247,8 @@ const checkoutWithStripeEmbedded = async (req, res) => {
         ? process.env.STRIPE_PRO_PRODUCT_PRICE_ID
         : plan === process.env.STRIPE_BUSINESS_PRODUCT_NAME
         ? process.env.STRIPE_BUSINESS_PRODUCT_PRICE_ID
+        : plan === process.env.STRIPE_RENEWED_PRODUCT_NAME
+        ? process.env.STRIPE_RENEWED_PRODUCT_PRICE_ID
         : process.env.STRIPE_ENTERPRISE_PRODUCT_PRICE_ID
     );
   }
@@ -249,6 +260,8 @@ const checkoutWithStripeEmbedded = async (req, res) => {
         ? process.env.STRIPE_PRO_PRODUCT_PRICE_ID
         : plan === process.env.STRIPE_BUSINESS_PRODUCT_NAME
         ? process.env.STRIPE_BUSINESS_PRODUCT_PRICE_ID
+        : plan === process.env.STRIPE_RENEWED_PRODUCT_NAME
+        ? process.env.STRIPE_RENEWED_PRODUCT_PRICE_ID
         : process.env.STRIPE_ENTERPRISE_PRODUCT_PRICE_ID
     );
     price = await subscriptionService.upsertPriceRecord(stripePrice);

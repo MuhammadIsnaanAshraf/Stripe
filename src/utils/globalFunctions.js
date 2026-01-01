@@ -12,7 +12,9 @@ const toDateTime = (secs) => {
 const calculateTrialEndUnixTimestamp = (days) => {
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + days);
-  return Math.floor(trialEnd.getTime() / 1000);
+  unixFormatDate = Math.floor(trialEnd.getTime() / 1000);
+  console.log("🚀 ~ calculateTrialEndUnixTimestamp ~ unixFormatDate:", unixFormatDate)
+  return unixFormatDate;
 };
 
 module.exports = {
